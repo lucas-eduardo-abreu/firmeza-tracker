@@ -29,6 +29,15 @@ services:
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python manage.py check_spawns"
     envVars:
+      - key: SECRET_KEY
+        fromService:
+          name: firmeza-tracker
+          type: web
+          property: secret_key
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "firmeza-tracker.onrender.com"
       - key: DATABASE_URL
         fromDatabase:
           name: firmeza-db
