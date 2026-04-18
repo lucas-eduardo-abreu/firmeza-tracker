@@ -8,13 +8,18 @@
   <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
       <h5 style="font-family:'Cinzel',serif;color:#c8973a;margin:0;font-size:1rem;letter-spacing:1px;">SPAWN TRACKER</h5>
-      <div style="font-size:0.72rem;color:#555570;">MU Dream — atualização automática a cada 10s</div>
+      <div style="font-size:0.72rem;color:#555570;">MU Dream — atualização automática a cada segundo</div>
     </div>
-    <div class="legend">
-      <span class="legend-item"><span class="status-dot unknown"></span>Sem registro</span>
-      <span class="legend-item"><span class="status-dot waiting"></span>Morto</span>
-      <span class="legend-item"><span class="status-dot window"></span>Possivelmente vivo</span>
-      <span class="legend-item"><span class="status-dot overdue"></span>Vivo</span>
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <div class="legend">
+        <span class="legend-item"><span class="status-dot unknown"></span>Sem registro</span>
+        <span class="legend-item"><span class="status-dot waiting"></span>Morto</span>
+        <span class="legend-item"><span class="status-dot window"></span>Possivelmente vivo</span>
+        <span class="legend-item"><span class="status-dot overdue"></span>Vivo</span>
+      </div>
+      <button id="btn-mute" onclick="toggleMute()" title="Alarme de som">
+        🔔
+      </button>
     </div>
   </div>
 
@@ -160,7 +165,63 @@
 <script>
 const CSRF = '{{ csrf_token }}';
 
-// Server tab switching
+// ── Audio alarm ──────────────────────────────────────────────
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let muted = localStorage.getItem('alarmMuted') === '1';
+
+function updateMuteBtn() {
+  const btn = document.getElementById('btn-mute');
+  btn.textContent = muted ? '🔕' : '🔔';
+  btn.classList.toggle('muted', muted);
+}
+updateMuteBtn();
+
+function toggleMute() {
+  muted = !muted;
+  localStorage.setItem('alarmMuted', muted ? '1' : '0');
+  updateMuteBtn();
+}
+
+function playTone(freq, duration, delay = 0, type = 'sine') {
+  if (muted) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+  gain.gain.setValueAtTime(0.35, audioCtx.currentTime + delay);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + duration);
+  osc.start(audioCtx.currentTime + delay);
+  osc.stop(audioCtx.currentTime + delay + duration);
+}
+
+function alarmWindow() {
+  // Possivelmente vivo — 2 beeps ascendentes
+  playTone(520, 0.18, 0.0);
+  playTone(660, 0.25, 0.22);
+}
+
+function alarmOverdue() {
+  // Vivo — 3 beeps urgentes
+  playTone(880, 0.15, 0.00);
+  playTone(880, 0.15, 0.20);
+  playTone(1100, 0.30, 0.40);
+}
+
+// Track previous statuses to detect transitions
+const prevStatuses = {};
+
+// Initialise from page render (avoid firing alarms on load)
+document.querySelectorAll('[id^="countdown-"]').forEach(el => {
+  if (!el.getAttribute('data-min')) return;
+  const key = el.id.replace('countdown-', '');
+  const dot = document.getElementById(`dot-${key}`);
+  const status = dot ? [...dot.classList].find(c => ['waiting','window','overdue','unknown'].includes(c)) : null;
+  if (status) prevStatuses[key] = status;
+});
+
+// ── Server tab switching ──────────────────────────────────────
 function switchServer(configId, serverNum) {
   document.querySelectorAll(`[id^="panel-${configId}-"]`).forEach(p => p.classList.remove('active'));
   document.querySelectorAll(`[id^="tab-${configId}-"]`).forEach(t => t.classList.remove('active'));
@@ -266,6 +327,15 @@ function refreshCountdown(el, dot) {
   el.className = `countdown ${status}`;
   el.textContent = text;
   if (dot) dot.className = `status-dot ${status}`;
+
+  // Fire alarm on transition
+  const key = el.id.replace('countdown-', '');
+  const prev = prevStatuses[key];
+  if (prev && prev !== status) {
+    if (status === 'window') alarmWindow();
+    else if (status === 'overdue') alarmOverdue();
+  }
+  prevStatuses[key] = status;
 }
 
 function formatDuration(ms) {
