@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Login — Firmeza Tracker{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height:100vh;">
+  <div style="width:100%;max-width:380px;padding:1.5rem;">
+
+    <div class="text-center mb-4">
+      <div style="font-family:'Cinzel',serif;font-size:2rem;font-weight:700;color:#c8973a;letter-spacing:3px;text-shadow:0 0 30px rgba(200,151,58,0.5);">
+        FIRMEZA
+      </div>
+      <div style="font-family:'Cinzel',serif;font-size:0.85rem;letter-spacing:5px;color:#555570;margin-top:-4px;">
+        TRACKER
+      </div>
+    </div>
+
+    <div style="background:#0f0f1a;border:1px solid #1e1e35;border-radius:14px;padding:2rem;">
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="alert-dark-custom p-2 px-3 mb-3">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Usuário</label>
+          <input
+            type="text"
+            name="username"
+            class="form-control"
+            placeholder="seu usuário"
+            autofocus
+            value="{{ form.username.value|default:'' }}"
+          >
+        </div>
+        <div class="mb-4">
+          <label class="form-label">Senha</label>
+          <input
+            type="password"
+            name="password"
+            class="form-control"
+            placeholder="••••••••"
+          >
+        </div>
+        <button type="submit" class="btn-gold btn w-100">
+          <i class="bi bi-box-arrow-in-right me-2"></i>Entrar
+        </button>
+      </form>
+    </div>
+
+    <div class="text-center mt-3" style="font-size:0.7rem;color:#333355;">
+      MU Dream — Boss Spawn Tracker
+    </div>
+  </div>
+</div>
+{% endblock %}

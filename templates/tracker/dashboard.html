@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Firmeza Tracker{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 px-3 px-md-4">
+
+  <!-- Header row -->
+  <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+      <h5 style="font-family:'Cinzel',serif;color:#c8973a;margin:0;font-size:1rem;letter-spacing:1px;">SPAWN TRACKER</h5>
+      <div style="font-size:0.72rem;color:#555570;">MU Dream — atualização automática a cada 10s</div>
+    </div>
+    <div class="legend">
+      <span class="legend-item"><span class="status-dot unknown"></span>Sem registro</span>
+      <span class="legend-item"><span class="status-dot waiting"></span>Morto</span>
+      <span class="legend-item"><span class="status-dot window"></span>Possivelmente vivo</span>
+      <span class="legend-item"><span class="status-dot overdue"></span>Vivo</span>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" class="filter-bar d-flex flex-wrap gap-3 align-items-center">
+    <div class="d-flex align-items-center gap-2">
+      <label style="font-size:0.8rem;color:#7a7a9a;white-space:nowrap;">Mapa:</label>
+      <select name="map" onchange="this.form.submit()">
+        <option value="">Todos</option>
+        {% for m in maps %}
+          <option value="{{ m.id }}" {% if selected_map == m.id|stringformat:"s" %}selected{% endif %}>{{ m.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <label style="font-size:0.8rem;color:#7a7a9a;white-space:nowrap;">Boss:</label>
+      <select name="boss" onchange="this.form.submit()">
+        <option value="">Todos</option>
+        {% for b in bosses %}
+          <option value="{{ b.id }}" {% if selected_boss == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% if selected_map or selected_boss %}
+      <a href="/" style="font-size:0.78rem;color:#c8973a;text-decoration:none;"><i class="bi bi-x-circle me-1"></i>Limpar</a>
+    {% endif %}
+  </form>
+
+  <!-- Boss cards grid -->
+  <div class="row g-3">
+    {% for entry in data %}
+    {% with config=entry.config boss=entry.config.boss %}
+    <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+      <div class="boss-card h-100">
+        <!-- Card header -->
+        <div class="boss-card-header">
+          {% if boss.image %}
+            <img src="{{ boss.image.url }}" alt="{{ boss.name }}" class="boss-gif">
+          {% else %}
+            <div style="width:48px;height:48px;background:#111128;border-radius:6px;display:flex;align-items:center;justify-content:center;">
+              <i class="bi bi-skull" style="color:#333355;font-size:1.2rem;"></i>
+            </div>
+          {% endif %}
+          <div>
+            <div class="boss-name">{{ boss.name }}</div>
+            <div class="boss-map"><i class="bi bi-map me-1" style="font-size:0.65rem;"></i>{{ config.map.name }}</div>
+            <div style="font-size:0.65rem;color:#444466;">
+              Respawn: {{ config.respawn_min_hours }}h–{{ config.respawn_max_hours }}h
+              · {{ config.monsters_per_server }} monstro{% if config.monsters_per_server > 1 %}s{% endif %}/servidor
+            </div>
+          </div>
+        </div>
+
+        <!-- Server tabs -->
+        {% if entry.servers|length > 1 %}
+        <div class="server-tabs" id="tabs-{{ config.id }}">
+          {% for server in entry.servers %}
+          <button
+            class="server-tab {% if forloop.first %}active{% endif %}"
+            onclick="switchServer('{{ config.id }}', {{ server.number }})"
+            id="tab-{{ config.id }}-{{ server.number }}"
+          >S{{ server.number }}</button>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Server panels -->
+        {% for server in entry.servers %}
+        <div
+          class="server-panel {% if forloop.first %}active{% endif %}"
+          id="panel-{{ config.id }}-{{ server.number }}"
+        >
+          {% if entry.servers|length == 1 %}
+          <div style="font-size:0.72rem;color:#555570;margin-bottom:0.5rem;padding:0 0.25rem;">
+            <i class="bi bi-server me-1"></i>Servidor 1
+          </div>
+          {% endif %}
+          {% for m in server.monsters %}
+          <div class="monster-row" id="row-{{ config.id }}-{{ server.number }}-{{ m.index }}">
+            {% if config.monsters_per_server > 1 %}
+            <span class="monster-index">{{ m.index }}</span>
+            {% endif %}
+            <span
+              class="status-dot {% if m.record %}{{ m.record.status }}{% else %}unknown{% endif %}"
+              id="dot-{{ config.id }}-{{ server.number }}-{{ m.index }}"
+            ></span>
+            <div class="spawn-info">
+              {% if m.record %}
+                <div
+                  class="countdown {{ m.record.status }}"
+                  id="countdown-{{ config.id }}-{{ server.number }}-{{ m.index }}"
+                  data-min="{{ m.record.next_spawn_min.isoformat }}"
+                  data-max="{{ m.record.next_spawn_max.isoformat }}"
+                  data-status="{{ m.record.status }}"
+                ></div>
+                <div class="window-range" id="range-{{ config.id }}-{{ server.number }}-{{ m.index }}">
+                  {{ m.record.next_spawn_min|date:"d/m H:i" }} — {{ m.record.next_spawn_max|date:"d/m H:i" }}
+                </div>
+                <div class="last-death" id="death-{{ config.id }}-{{ server.number }}-{{ m.index }}">
+                  Morte: {{ m.record.last_death|date:"d/m H:i" }}
+                </div>
+              {% else %}
+                <div class="countdown unknown" id="countdown-{{ config.id }}-{{ server.number }}-{{ m.index }}">
+                  Sem registro
+                </div>
+
+              {% endif %}
+            </div>
+            {% if m.record %}
+              <span class="reporter-tag" id="reporter-{{ config.id }}-{{ server.number }}-{{ m.index }}">
+                <i class="bi bi-person"></i> {{ m.record.reported_by.username|default:"?" }}
+              </span>
+            {% else %}
+              <span class="reporter-tag" id="reporter-{{ config.id }}-{{ server.number }}-{{ m.index }}"></span>
+            {% endif %}
+            {% if m.can_edit %}
+            <button
+              class="btn-record"
+              onclick="openRecordModal({{ config.id }}, {{ server.number }}, {{ m.index }}, '{{ boss.name }}', '{{ config.map.name }}')"
+              title="Registrar morte"
+            ><i class="bi bi-skull me-1"></i>Registrar morte</button>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endwith %}
+    {% empty %}
+    <div class="col-12">
+      <div class="text-center py-5" style="color:#333355;">
+        <i class="bi bi-search" style="font-size:2rem;"></i>
+        <div class="mt-2">Nenhum boss encontrado</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = '{{ csrf_token }}';
+
+// Server tab switching
+function switchServer(configId, serverNum) {
+  document.querySelectorAll(`[id^="panel-${configId}-"]`).forEach(p => p.classList.remove('active'));
+  document.querySelectorAll(`[id^="tab-${configId}-"]`).forEach(t => t.classList.remove('active'));
+  document.getElementById(`panel-${configId}-${serverNum}`).classList.add('active');
+  document.getElementById(`tab-${configId}-${serverNum}`).classList.add('active');
+}
+
+// Modal
+let pendingRecord = null;
+const modal = new bootstrap.Modal(document.getElementById('recordModal'));
+
+function openRecordModal(configId, serverNum, monsterIndex, bossName, mapName) {
+  pendingRecord = { configId, serverNum, monsterIndex };
+  document.getElementById('modal-boss-name').textContent = bossName;
+  document.getElementById('modal-boss-sub').textContent = `${mapName} — Servidor ${serverNum}${monsterIndex > 1 ? ' — #' + monsterIndex : ''}`;
+  document.getElementById('death-time-input').value = '';
+  modal.show();
+}
+
+document.getElementById('btn-now').addEventListener('click', () => {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('death-time-input').value = now.toISOString().slice(0, 16);
+});
+
+document.getElementById('btn-confirm-record').addEventListener('click', async () => {
+  if (!pendingRecord) return;
+  const { configId, serverNum, monsterIndex } = pendingRecord;
+  const deathTime = document.getElementById('death-time-input').value;
+
+  const body = new FormData();
+  body.append('config_id', configId);
+  body.append('server_number', serverNum);
+  body.append('monster_index', monsterIndex);
+  if (deathTime) body.append('death_time', deathTime);
+
+  const res = await fetch('/api/record-death/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': CSRF },
+    body,
+  });
+
+  if (res.ok) {
+    const data = await res.json();
+    updateRow(configId, serverNum, monsterIndex, data);
+    modal.hide();
+  } else {
+    alert('Erro ao registrar.');
+  }
+});
+
+
+function updateRow(configId, serverNum, monsterIndex, data) {
+  const key = `${configId}-${serverNum}-${monsterIndex}`;
+  const dot = document.getElementById(`dot-${key}`);
+  const countdown = document.getElementById(`countdown-${key}`);
+  const range = document.getElementById(`range-${key}`);
+  const death = document.getElementById(`death-${key}`);
+  const reporter = document.getElementById(`reporter-${key}`);
+
+  countdown.setAttribute('data-min', data.next_spawn_min);
+  countdown.setAttribute('data-max', data.next_spawn_max);
+
+  const minDate = new Date(data.next_spawn_min);
+  const maxDate = new Date(data.next_spawn_max);
+  const deathDate = new Date(data.last_death);
+
+  const fmt = d => `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+
+  if (range) range.textContent = `${fmt(minDate)} — ${fmt(maxDate)}`;
+  if (death) death.textContent = `Morte: ${fmt(deathDate)}`;
+  if (reporter) reporter.innerHTML = `<i class="bi bi-person"></i> ${data.reported_by}`;
+
+  refreshCountdown(countdown, dot);
+}
+
+// Countdown logic
+function refreshCountdown(el, dot) {
+  const minStr = el.getAttribute('data-min');
+  const maxStr = el.getAttribute('data-max');
+  if (!minStr || !maxStr) return;
+
+  const now = Date.now();
+  const minTime = new Date(minStr).getTime();
+  const maxTime = new Date(maxStr).getTime();
+
+  let status, text;
+
+  if (now < minTime) {
+    status = 'waiting';
+    const diff = minTime - now;
+    text = `Morto — ${formatDuration(diff)}`;
+  } else if (now <= maxTime) {
+    status = 'window';
+    const diff = maxTime - now;
+    text = `Possivelmente vivo — ${formatDuration(diff)}`;
+  } else {
+    status = 'overdue';
+    const diff = now - maxTime;
+    text = `Vivo — ${formatDuration(diff)}`;
+  }
+
+  el.className = `countdown ${status}`;
+  el.textContent = text;
+  if (dot) dot.className = `status-dot ${status}`;
+}
+
+function formatDuration(ms) {
+  const total = Math.floor(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}h ${m.toString().padStart(2,'0')}m`;
+  if (m > 0) return `${m}m ${s.toString().padStart(2,'0')}s`;
+  return `${s}s`;
+}
+
+function refreshAll() {
+  document.querySelectorAll('[id^="countdown-"]').forEach(el => {
+    if (!el.getAttribute('data-min')) return;
+    const parts = el.id.replace('countdown-', '').split('-');
+    const key = parts.join('-');
+    const dot = document.getElementById(`dot-${key}`);
+    refreshCountdown(el, dot);
+  });
+}
+
+refreshAll();
+setInterval(refreshAll, 1000);
+</script>
+{% endblock %}
