@@ -9,7 +9,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Boss, Map, BossSpawnConfig, SpawnRecord
+from .models import Boss, Map, BossSpawnConfig, SpawnRecord, PushSubscription
 from .forms import LoginForm, SpawnRecordForm
 
 
@@ -357,6 +357,145 @@ class DeleteRecordViewTest(TestCase):
     def test_404_on_invalid_record(self):
         r = self.client.post(reverse('delete_record', args=[9999]))
         self.assertEqual(r.status_code, 404)
+
+
+# ── PushSubscription model tests ─────────────────────────────
+
+class PushSubscriptionModelTest(TestCase):
+    def test_str(self):
+        user = User.objects.create_user('player', password='pass')
+        sub = PushSubscription(user=user, endpoint='https://push.example.com/abc', p256dh='x', auth='y')
+        self.assertIn('player', str(sub))
+
+
+# ── Push API view tests ───────────────────────────────────────
+
+class PushViewTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('player', password='pass')
+        self.client.login(username='player', password='pass')
+        self.sub_payload = {
+            'endpoint': 'https://push.example.com/test',
+            'keys': {'p256dh': 'abc123', 'auth': 'xyz'},
+        }
+
+    def test_vapid_key_returns_public_key(self):
+        with self.settings(VAPID_PUBLIC_KEY='test-public-key'):
+            r = self.client.get(reverse('push_vapid_key'))
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(json.loads(r.content)['publicKey'], 'test-public-key')
+
+    def test_subscribe_creates_subscription(self):
+        r = self.client.post(
+            reverse('push_subscribe'),
+            data=json.dumps(self.sub_payload),
+            content_type='application/json',
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(PushSubscription.objects.filter(endpoint=self.sub_payload['endpoint']).exists())
+
+    def test_subscribe_upserts_existing(self):
+        self.client.post(reverse('push_subscribe'),
+                         data=json.dumps(self.sub_payload), content_type='application/json')
+        self.client.post(reverse('push_subscribe'),
+                         data=json.dumps(self.sub_payload), content_type='application/json')
+        self.assertEqual(PushSubscription.objects.count(), 1)
+
+    def test_unsubscribe_removes_subscription(self):
+        PushSubscription.objects.create(
+            user=self.user, endpoint=self.sub_payload['endpoint'], p256dh='x', auth='y')
+        r = self.client.post(
+            reverse('push_unsubscribe'),
+            data=json.dumps({'endpoint': self.sub_payload['endpoint']}),
+            content_type='application/json',
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(PushSubscription.objects.exists())
+
+    def test_requires_login(self):
+        self.client.logout()
+        r = self.client.post(reverse('push_subscribe'),
+                             data=json.dumps(self.sub_payload), content_type='application/json')
+        self.assertEqual(r.status_code, 302)
+
+
+# ── check_spawns command tests ────────────────────────────────
+
+class CheckSpawnsCommandTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('player', password='pass')
+        self.config = make_config(rmin=2.0, rmax=4.0)
+        self.sub = PushSubscription.objects.create(
+            user=self.user, endpoint='https://push.example.com/x', p256dh='p', auth='a')
+
+    def test_skips_when_no_vapid_key(self):
+        out = StringIO()
+        with self.settings(VAPID_PRIVATE_KEY=''):
+            call_command('check_spawns', stdout=out)
+        self.assertIn('not set', out.getvalue())
+
+    def test_no_notifications_when_status_unchanged(self):
+        record = make_record(self.config, self.user, hours_ago=0.5)  # waiting
+        record.last_notified_status = 'waiting'
+        record.save()
+        out = StringIO()
+        with self.settings(VAPID_PRIVATE_KEY='key'), patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
+            call_command('check_spawns', stdout=out)
+            mock_send.assert_not_called()
+
+    def test_sends_notification_on_window_transition(self):
+        record = make_record(self.config, self.user, hours_ago=3)  # window
+        record.last_notified_status = 'waiting'
+        record.save()
+        with self.settings(VAPID_PRIVATE_KEY='key'), patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
+            call_command('check_spawns', stdout=StringIO())
+            mock_send.assert_called_once()
+            args = mock_send.call_args[0]
+            self.assertIn('Possivelmente', args[1])
+
+    def test_sends_notification_on_overdue_transition(self):
+        record = make_record(self.config, self.user, hours_ago=5)  # overdue
+        record.last_notified_status = 'window'
+        record.save()
+        with self.settings(VAPID_PRIVATE_KEY='key'), patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
+            call_command('check_spawns', stdout=StringIO())
+            mock_send.assert_called_once()
+            args = mock_send.call_args[0]
+            self.assertIn('VIVO', args[1])
+
+    def test_updates_last_notified_status(self):
+        record = make_record(self.config, self.user, hours_ago=3)  # window
+        record.last_notified_status = 'waiting'
+        record.save()
+        with self.settings(VAPID_PRIVATE_KEY='key'), patch('firmeza.tracker.management.commands.check_spawns.send_push'):
+            call_command('check_spawns', stdout=StringIO())
+        record.refresh_from_db()
+        self.assertEqual(record.last_notified_status, 'window')
+
+    def test_updates_status_to_waiting_without_sending(self):
+        record = make_record(self.config, self.user, hours_ago=0.5)  # waiting
+        record.last_notified_status = ''
+        record.save()
+        with self.settings(VAPID_PRIVATE_KEY='key'), patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
+            call_command('check_spawns', stdout=StringIO())
+            mock_send.assert_not_called()
+        record.refresh_from_db()
+        self.assertEqual(record.last_notified_status, 'waiting')
+
+    def test_multi_monster_body_includes_index(self):
+        config = make_config(boss_name='Draviel', monsters=10, servers=3, rmin=2.0, rmax=4.0)
+        record = make_record(config, self.user, hours_ago=3)
+        record.last_notified_status = 'waiting'
+        record.save()
+        with self.settings(VAPID_PRIVATE_KEY='key'), patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
+            call_command('check_spawns', stdout=StringIO())
+            args = mock_send.call_args[0]
+            self.assertIn('#1', args[2])
+
+    def test_send_push_silences_exception(self):
+        from firmeza.tracker.management.commands.check_spawns import send_push
+        with self.settings(VAPID_PRIVATE_KEY='bad-key'):
+            send_push(self.sub, 'title', 'body')  # should not raise
 
 
 # ── Seed command tests ────────────────────────────────────────

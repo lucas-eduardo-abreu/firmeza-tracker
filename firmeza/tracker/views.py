@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
 from django.contrib.auth.decorators import login_required
@@ -6,7 +7,8 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from .models import Boss, Map, BossSpawnConfig, SpawnRecord
+from django.conf import settings
+from .models import Boss, Map, BossSpawnConfig, SpawnRecord, PushSubscription
 from .forms import LoginForm, SpawnRecordForm
 
 
@@ -132,6 +134,33 @@ def record_death(request):
         'status': record.status,
         'reported_by': record.reported_by.username,
     })
+
+
+@login_required
+@require_POST
+def push_subscribe(request):
+    data = json.loads(request.body)
+    endpoint = data['endpoint']
+    p256dh = data['keys']['p256dh']
+    auth = data['keys']['auth']
+    PushSubscription.objects.update_or_create(
+        endpoint=endpoint,
+        defaults={'user': request.user, 'p256dh': p256dh, 'auth': auth},
+    )
+    return JsonResponse({'ok': True})
+
+
+@login_required
+@require_POST
+def push_unsubscribe(request):
+    data = json.loads(request.body)
+    PushSubscription.objects.filter(endpoint=data.get('endpoint')).delete()
+    return JsonResponse({'ok': True})
+
+
+@login_required
+def push_vapid_key(request):
+    return JsonResponse({'publicKey': settings.VAPID_PUBLIC_KEY})
 
 
 @login_required

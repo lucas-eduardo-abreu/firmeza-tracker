@@ -42,12 +42,24 @@ class BossSpawnConfig(models.Model):
         return f"{self.boss.name} — {self.map.name}"
 
 
+class PushSubscription(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='push_subscriptions')
+    endpoint = models.TextField(unique=True)
+    p256dh = models.TextField()
+    auth = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} — {self.endpoint[:60]}"
+
+
 class SpawnRecord(models.Model):
     config = models.ForeignKey(BossSpawnConfig, on_delete=models.CASCADE, related_name='records')
     server_number = models.PositiveSmallIntegerField()
     monster_index = models.PositiveSmallIntegerField(default=1)
     last_death = models.DateTimeField()
     reported_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='spawn_records')
+    last_notified_status = models.CharField(max_length=10, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

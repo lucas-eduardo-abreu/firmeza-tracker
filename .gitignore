@@ -1,3 +1,6 @@
+# VAPID keys (never commit)
+vapid_keys.txt
+
 # Coverage
 .coverage
 htmlcov/
