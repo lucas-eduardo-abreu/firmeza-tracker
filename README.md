@@ -1,5 +1,8 @@
 # Firmeza Tracker
 
+![Tests](https://github.com/lucas-eduardo-abreu/firmeza-tracker/actions/workflows/tests.yml/badge.svg)
+![Coverage](coverage.svg)
+
 Tracker de spawn de bosses para MU Dream.
 
 ## Funcionalidades
