@@ -447,7 +447,8 @@ class CheckSpawnsCommandTest(TestCase):
         record = make_record(self.config, self.user, hours_ago=3)  # window
         record.last_notified_status = 'waiting'
         record.save()
-        with self.settings(VAPID_PRIVATE_KEY='key'), patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
+        with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
+             patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
             call_command('check_spawns', stdout=StringIO())
             mock_send.assert_called_once()
             args = mock_send.call_args[0]
@@ -457,7 +458,8 @@ class CheckSpawnsCommandTest(TestCase):
         record = make_record(self.config, self.user, hours_ago=5)  # overdue
         record.last_notified_status = 'window'
         record.save()
-        with self.settings(VAPID_PRIVATE_KEY='key'), patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
+        with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
+             patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
             call_command('check_spawns', stdout=StringIO())
             mock_send.assert_called_once()
             args = mock_send.call_args[0]
@@ -467,7 +469,8 @@ class CheckSpawnsCommandTest(TestCase):
         record = make_record(self.config, self.user, hours_ago=3)  # window
         record.last_notified_status = 'waiting'
         record.save()
-        with self.settings(VAPID_PRIVATE_KEY='key'), patch('firmeza.tracker.management.commands.check_spawns.send_push'):
+        with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
+             patch('firmeza.tracker.management.commands.check_spawns.send_push'):
             call_command('check_spawns', stdout=StringIO())
         record.refresh_from_db()
         self.assertEqual(record.last_notified_status, 'window')
@@ -476,7 +479,8 @@ class CheckSpawnsCommandTest(TestCase):
         record = make_record(self.config, self.user, hours_ago=0.5)  # waiting
         record.last_notified_status = ''
         record.save()
-        with self.settings(VAPID_PRIVATE_KEY='key'), patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
+        with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
+             patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
             call_command('check_spawns', stdout=StringIO())
             mock_send.assert_not_called()
         record.refresh_from_db()
@@ -487,10 +491,21 @@ class CheckSpawnsCommandTest(TestCase):
         record = make_record(config, self.user, hours_ago=3)
         record.last_notified_status = 'waiting'
         record.save()
-        with self.settings(VAPID_PRIVATE_KEY='key'), patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
+        with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
+             patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
             call_command('check_spawns', stdout=StringIO())
             args = mock_send.call_args[0]
             self.assertIn('#1', args[2])
+
+    def test_icon_uses_boss_gif(self):
+        record = make_record(self.config, self.user, hours_ago=3)
+        record.last_notified_status = 'waiting'
+        record.save()
+        with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
+             patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
+            call_command('check_spawns', stdout=StringIO())
+            kwargs = mock_send.call_args[1]
+            self.assertIn('Borgar.gif', kwargs['icon'])
 
     def test_send_push_silences_exception(self):
         from firmeza.tracker.management.commands.check_spawns import send_push

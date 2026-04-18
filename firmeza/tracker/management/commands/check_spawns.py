@@ -9,15 +9,15 @@ from django.utils import timezone
 from firmeza.tracker.models import SpawnRecord, PushSubscription
 
 
-def send_push(subscription, title, body):
+def send_push(subscription, title, body, icon=None):
     try:
-        from pywebpush import webpush, WebPushException
+        from pywebpush import webpush
         webpush(
             subscription_info={
                 'endpoint': subscription.endpoint,
                 'keys': {'p256dh': subscription.p256dh, 'auth': subscription.auth},
             },
-            data=json.dumps({'title': title, 'body': body}),
+            data=json.dumps({'title': title, 'body': body, 'icon': icon}),
             vapid_private_key=settings.VAPID_PRIVATE_KEY,
             vapid_claims={'sub': f'mailto:{settings.VAPID_ADMIN_EMAIL}'},
         )
@@ -36,6 +36,9 @@ class Command(BaseCommand):
         now = timezone.now()
         notified = 0
 
+        base_url = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else 'localhost'
+        base_url = f'https://{base_url}'
+
         for record in SpawnRecord.objects.select_related('config__boss', 'config__map'):
             status = record.status
 
@@ -46,20 +49,21 @@ class Command(BaseCommand):
                 record.save(update_fields=['last_notified_status'])
                 continue
 
-            boss = record.config.boss.name
+            boss = record.config.boss
             map_name = record.config.map.name
             server = record.server_number
             idx = f' #{record.monster_index}' if record.config.monsters_per_server > 1 else ''
+            icon = f'{base_url}/static/bosses/{boss.gif_filename}' if boss.gif_filename else None
 
             if status == 'window':
-                title = f'⚠️ {boss} — Possivelmente vivo!'
+                title = f'⚠️ {boss.name} — Possivelmente vivo!'
                 body = f'{map_name} · S{server}{idx}'
             else:
-                title = f'🟢 {boss} — VIVO!'
+                title = f'🟢 {boss.name} — VIVO!'
                 body = f'{map_name} · S{server}{idx} · Mate agora!'
 
             for sub in PushSubscription.objects.all():
-                send_push(sub, title, body)
+                send_push(sub, title, body, icon=icon)
                 notified += 1
 
             record.last_notified_status = status
