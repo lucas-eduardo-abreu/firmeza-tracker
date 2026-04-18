@@ -43,7 +43,16 @@
         {% endfor %}
       </select>
     </div>
-    {% if selected_map or selected_boss %}
+    <div class="d-flex align-items-center gap-2">
+      <label style="font-size:0.8rem;color:#7a7a9a;white-space:nowrap;">Servidor:</label>
+      <select name="server" onchange="this.form.submit()">
+        <option value="">Todos</option>
+        {% for n in server_range %}
+          <option value="{{ n }}" {% if selected_server == n|stringformat:"s" %}selected{% endif %}>S{{ n }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% if selected_map or selected_boss or selected_server %}
       <a href="/" style="font-size:0.78rem;color:#c8973a;text-decoration:none;"><i class="bi bi-x-circle me-1"></i>Limpar</a>
     {% endif %}
   </form>

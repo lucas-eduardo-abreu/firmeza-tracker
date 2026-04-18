@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.db import models
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login, logout, authenticate
 from django.contrib import messages
@@ -36,16 +37,24 @@ def dashboard(request):
     configs = BossSpawnConfig.objects.select_related('boss', 'map').order_by('boss__display_order', 'boss__name', 'map__name')
     selected_map = request.GET.get('map', '')
     selected_boss = request.GET.get('boss', '')
+    selected_server = request.GET.get('server', '')
 
     if selected_map:
         configs = configs.filter(map__id=selected_map)
     if selected_boss:
         configs = configs.filter(boss__id=selected_boss)
+    if selected_server:
+        configs = configs.filter(server_count__gte=selected_server)
+
+    max_servers = BossSpawnConfig.objects.aggregate(m=models.Max('server_count'))['m'] or 1
 
     data = []
     for config in configs:
+        server_range = range(1, config.server_count + 1)
+        if selected_server:
+            server_range = [int(selected_server)]
         servers = []
-        for s in range(1, config.server_count + 1):
+        for s in server_range:
             monsters = []
             for m in range(1, config.monsters_per_server + 1):
                 record = SpawnRecord.objects.filter(
@@ -72,6 +81,8 @@ def dashboard(request):
         'bosses': bosses,
         'selected_map': selected_map,
         'selected_boss': selected_boss,
+        'selected_server': selected_server,
+        'server_range': range(1, max_servers + 1),
     })
 
 
