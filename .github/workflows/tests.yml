@@ -19,15 +19,16 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt coverage coverage-badge setuptools
+        run: pip install -r requirements.txt coverage genbadge[coverage]
 
       - name: Run tests with coverage
         run: |
           coverage run --source=firmeza/tracker manage.py test firmeza.tracker
           coverage report --omit="firmeza/tracker/migrations/*"
+          coverage xml --omit="firmeza/tracker/migrations/*"
 
       - name: Generate coverage badge
-        run: coverage-badge -o coverage.svg -f
+        run: genbadge coverage -i coverage.xml -o coverage.svg
 
       - name: Commit badge if changed
         uses: stefanzweifel/git-auto-commit-action@v5
