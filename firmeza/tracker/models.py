@@ -6,7 +6,7 @@ from datetime import timedelta
 
 class Boss(models.Model):
     name = models.CharField(max_length=100)
-    image = models.FileField(upload_to='bosses/', blank=True, null=True)
+    gif_filename = models.CharField(max_length=100, blank=True)
     display_order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:

@@ -2,9 +2,7 @@
 Management command to seed boss and spawn configuration data.
 Run with: python manage.py seed
 """
-import shutil
 from django.core.management.base import BaseCommand
-from django.conf import settings
 from firmeza.tracker.models import Boss, Map, BossSpawnConfig
 
 
@@ -33,10 +31,6 @@ class Command(BaseCommand):
     help = 'Seed database with boss and spawn configuration data'
 
     def handle(self, *args, **options):
-        gif_src = settings.BASE_DIR / 'gif_boss'
-        media_bosses = settings.MEDIA_ROOT / 'bosses'
-        media_bosses.mkdir(parents=True, exist_ok=True)
-
         created_bosses = 0
         created_configs = 0
 
@@ -45,19 +39,19 @@ class Command(BaseCommand):
 
             boss, boss_created = Boss.objects.get_or_create(
                 name=boss_name,
-                defaults={'display_order': display_order},
+                defaults={'display_order': display_order, 'gif_filename': gif_file},
             )
-            if not boss_created and boss.display_order != display_order:
+            update_fields = []
+            if boss.display_order != display_order:
                 boss.display_order = display_order
-                boss.save(update_fields=['display_order'])
+                update_fields.append('display_order')
+            if boss.gif_filename != gif_file:
+                boss.gif_filename = gif_file
+                update_fields.append('gif_filename')
+            if update_fields:
+                boss.save(update_fields=update_fields)
 
             if boss_created:
-                src = gif_src / gif_file
-                if src.exists():
-                    dst = media_bosses / gif_file
-                    shutil.copy2(src, dst)
-                    boss.image = f'bosses/{gif_file}'
-                    boss.save()
                 created_bosses += 1
 
             map_obj, _ = Map.objects.get_or_create(name=map_name)
