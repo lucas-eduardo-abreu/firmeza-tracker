@@ -79,8 +79,9 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+_static_dir = BASE_DIR / 'static'
 STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+    *([_static_dir] if _static_dir.exists() else []),
     ('bosses', BASE_DIR / 'gif_boss'),
 ]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'

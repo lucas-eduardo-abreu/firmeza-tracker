@@ -439,9 +439,11 @@ class CheckSpawnsCommandTest(TestCase):
         record.last_notified_status = 'waiting'
         record.save()
         out = StringIO()
-        with self.settings(VAPID_PRIVATE_KEY='key'), patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
+        with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
+             patch('firmeza.tracker.management.commands.check_spawns.send_push') as mock_send:
             call_command('check_spawns', stdout=out)
             mock_send.assert_not_called()
+        self.assertIn('0 enviadas', out.getvalue())
 
     def test_sends_notification_on_window_transition(self):
         record = make_record(self.config, self.user, hours_ago=3)  # window
@@ -507,10 +509,37 @@ class CheckSpawnsCommandTest(TestCase):
             kwargs = mock_send.call_args[1]
             self.assertIn('Borgar.gif', kwargs['icon'])
 
-    def test_send_push_silences_exception(self):
+    def test_send_push_returns_true_on_success(self):
+        from firmeza.tracker.management.commands.check_spawns import send_push
+        with patch('pywebpush.webpush', return_value=None):
+            result = send_push(self.sub, 'title', 'body')
+        self.assertTrue(result)
+
+    def test_send_push_returns_false_on_exception(self):
         from firmeza.tracker.management.commands.check_spawns import send_push
         with self.settings(VAPID_PRIVATE_KEY='bad-key'):
-            send_push(self.sub, 'title', 'body')  # should not raise
+            result = send_push(self.sub, 'title', 'body')
+        self.assertFalse(result)
+
+    def test_failed_counter_when_send_fails(self):
+        record = make_record(self.config, self.user, hours_ago=3)
+        record.last_notified_status = 'waiting'
+        record.save()
+        out = StringIO()
+        with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
+             patch('firmeza.tracker.management.commands.check_spawns.send_push', return_value=False):
+            call_command('check_spawns', stdout=out)
+        self.assertIn('1 falhas', out.getvalue())
+
+    def test_output_shows_sent_and_failed(self):
+        record = make_record(self.config, self.user, hours_ago=3)
+        record.last_notified_status = 'waiting'
+        record.save()
+        out = StringIO()
+        with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
+             patch('firmeza.tracker.management.commands.check_spawns.send_push', return_value=True):
+            call_command('check_spawns', stdout=out)
+        self.assertIn('enviadas', out.getvalue())
 
 
 # ── Seed command tests ────────────────────────────────────────

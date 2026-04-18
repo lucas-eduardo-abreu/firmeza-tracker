@@ -21,8 +21,11 @@ def send_push(subscription, title, body, icon=None):
             vapid_private_key=settings.VAPID_PRIVATE_KEY,
             vapid_claims={'sub': f'mailto:{settings.VAPID_ADMIN_EMAIL}'},
         )
-    except Exception:
-        pass
+        return True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error('send_push failed for %s: %s', subscription.endpoint[:60], e)
+        return False
 
 
 class Command(BaseCommand):
@@ -33,11 +36,9 @@ class Command(BaseCommand):
             self.stdout.write('VAPID_PRIVATE_KEY not set, skipping.')
             return
 
-        now = timezone.now()
-        notified = 0
-
-        base_url = settings.ALLOWED_HOSTS[0] if settings.ALLOWED_HOSTS else 'localhost'
-        base_url = f'https://{base_url}'
+        base_url = f'https://{settings.ALLOWED_HOSTS[0]}' if settings.ALLOWED_HOSTS else 'http://localhost'
+        sent = 0
+        failed = 0
 
         for record in SpawnRecord.objects.select_related('config__boss', 'config__map'):
             status = record.status
@@ -62,11 +63,16 @@ class Command(BaseCommand):
                 title = f'🟢 {boss.name} — VIVO!'
                 body = f'{map_name} · S{server}{idx} · Mate agora!'
 
+            self.stdout.write(f'Notificando: {title} | {body}')
+
             for sub in PushSubscription.objects.all():
-                send_push(sub, title, body, icon=icon)
-                notified += 1
+                self.stdout.write(f'  → endpoint: {sub.endpoint[:60]}')
+                if send_push(sub, title, body, icon=icon):
+                    sent += 1
+                else:
+                    failed += 1
 
             record.last_notified_status = status
             record.save(update_fields=['last_notified_status'])
 
-        self.stdout.write(f'check_spawns: {notified} notificações enviadas.')
+        self.stdout.write(f'check_spawns: {sent} enviadas, {failed} falhas.')
