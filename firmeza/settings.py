@@ -95,11 +95,9 @@ VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')
 VAPID_ADMIN_EMAIL = os.environ.get('VAPID_ADMIN_EMAIL', 'admin@firmeza.com')
 
 _raw_key = os.environ.get('VAPID_PRIVATE_KEY', '')
-if _raw_key and not _raw_key.strip().startswith('-----'):
-    # Stored as single-line base64 (no PEM headers) — reconstruct PEM
-    VAPID_PRIVATE_KEY = f"-----BEGIN PRIVATE KEY-----\n{_raw_key}\n-----END PRIVATE KEY-----"
-else:
-    VAPID_PRIVATE_KEY = _raw_key.replace('\\n', '\n')
+# Pass as-is: py_vapid handles both raw base64url and PEM formats natively.
+# Wrapping a raw key in PEM headers produces invalid PKCS#8 and breaks sending.
+VAPID_PRIVATE_KEY = _raw_key.strip().replace('\\n', '\n')
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'

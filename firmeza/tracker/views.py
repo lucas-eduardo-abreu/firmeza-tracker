@@ -164,6 +164,34 @@ def push_vapid_key(request):
 
 
 @login_required
+def push_status(request):
+    from django.conf import settings as s
+    subs = list(PushSubscription.objects.filter(user=request.user).values('endpoint', 'created_at'))
+    return JsonResponse({
+        'vapid_public_key_set': bool(s.VAPID_PUBLIC_KEY),
+        'vapid_private_key_set': bool(s.VAPID_PRIVATE_KEY),
+        'vapid_private_key_preview': s.VAPID_PRIVATE_KEY[:30] if s.VAPID_PRIVATE_KEY else '',
+        'subscriptions': [{'endpoint': sub['endpoint'][:60], 'created_at': sub['created_at'].isoformat()} for sub in subs],
+    })
+
+
+@login_required
+@require_POST
+def push_test(request):
+    from .management.commands.check_spawns import send_push
+    subs = PushSubscription.objects.filter(user=request.user)
+    if not subs.exists():
+        return JsonResponse({'error': 'Sem subscrições registradas para este usuário'}, status=400)
+    results = []
+    for sub in subs:
+        result = send_push(sub, '🔔 Teste Firmeza Tracker', 'Notificações funcionando!')
+        if result == 'expired':
+            sub.delete()
+        results.append({'endpoint': sub.endpoint[:50], 'result': result})
+    return JsonResponse({'results': results})
+
+
+@login_required
 @require_POST
 def delete_record(request, record_id):
     record = get_object_or_404(SpawnRecord, id=record_id)

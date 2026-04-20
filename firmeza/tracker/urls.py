@@ -10,4 +10,6 @@ urlpatterns = [
     path('api/push/subscribe/', views.push_subscribe, name='push_subscribe'),
     path('api/push/unsubscribe/', views.push_unsubscribe, name='push_unsubscribe'),
     path('api/push/vapid-key/', views.push_vapid_key, name='push_vapid_key'),
+    path('api/push/test/', views.push_test, name='push_test'),
+    path('api/push/status/', views.push_status, name='push_status'),
 ]

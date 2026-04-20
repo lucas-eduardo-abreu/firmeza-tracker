@@ -10,8 +10,10 @@ from firmeza.tracker.models import SpawnRecord, PushSubscription
 
 
 def send_push(subscription, title, body, icon=None):
+    import logging
+    log = logging.getLogger(__name__)
     try:
-        from pywebpush import webpush
+        from pywebpush import webpush, WebPushException
         webpush(
             subscription_info={
                 'endpoint': subscription.endpoint,
@@ -21,11 +23,14 @@ def send_push(subscription, title, body, icon=None):
             vapid_private_key=settings.VAPID_PRIVATE_KEY,
             vapid_claims={'sub': f'mailto:{settings.VAPID_ADMIN_EMAIL}'},
         )
-        return True
+        return 'ok'
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error('send_push failed for %s: %s', subscription.endpoint[:60], e)
-        return False
+        status = getattr(getattr(e, 'response', None), 'status_code', None)
+        if status in (404, 410):
+            log.warning('Subscription gone (%s), deleting: %s', status, subscription.endpoint[:60])
+            return 'expired'
+        log.error('send_push failed for %s: %s', subscription.endpoint[:60], e)
+        return 'error'
 
 
 class Command(BaseCommand):
@@ -67,8 +72,11 @@ class Command(BaseCommand):
 
             for sub in PushSubscription.objects.all():
                 self.stdout.write(f'  → endpoint: {sub.endpoint[:60]}')
-                if send_push(sub, title, body, icon=icon):
+                result = send_push(sub, title, body, icon=icon)
+                if result == 'ok':
                     sent += 1
+                elif result == 'expired':
+                    sub.delete()
                 else:
                     failed += 1
 

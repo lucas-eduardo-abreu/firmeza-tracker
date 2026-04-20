@@ -429,7 +429,8 @@
           <strong>{{ user.username }}</strong>
           {% if user.is_superuser %}<span class="ms-1 badge" style="background:rgba(200,151,58,0.2);color:var(--gold);font-size:0.65rem;">ADMIN</span>{% endif %}
         </span>
-        <button id="btn-push" title="Notificações push" onclick="togglePush()">🔔</button>
+        <button id="btn-push" title="Ativar notificações push" onclick="togglePush()">🔕</button>
+        <button id="btn-push-test" title="Enviar notificação de teste" onclick="testPush()" style="display:none;background:transparent;border:1px solid var(--border-color);border-radius:6px;padding:0.3rem 0.6rem;font-size:0.75rem;cursor:pointer;color:var(--text-muted);">teste</button>
         <a href="{% url 'logout' %}" class="btn-logout"><i class="bi bi-box-arrow-right me-1"></i>Sair</a>
       </div>
     </div>
@@ -502,14 +503,17 @@
 
   function updatePushBtn() {
     const btn = document.getElementById('btn-push');
+    const testBtn = document.getElementById('btn-push-test');
     if (pushSubscription) {
       btn.textContent = '🔔';
       btn.classList.add('active');
       btn.title = 'Notificações ativas — clique para desativar';
+      if (testBtn) testBtn.style.display = '';
     } else {
       btn.textContent = '🔕';
       btn.classList.remove('active');
       btn.title = 'Ativar notificações push';
+      if (testBtn) testBtn.style.display = 'none';
     }
   }
 
@@ -517,33 +521,59 @@
     const btn = document.getElementById('btn-push');
     if (btn.classList.contains('unsupported')) return;
 
-    if (pushSubscription) {
-      await fetch('/api/push/unsubscribe/', {
-        method: 'POST',
-        headers: {'X-CSRFToken': PUSH_CSRF, 'Content-Type': 'application/json'},
-        body: JSON.stringify({endpoint: pushSubscription.endpoint}),
-      });
-      await pushSubscription.unsubscribe();
-      pushSubscription = null;
-    } else {
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') return;
+    try {
+      if (pushSubscription) {
+        await fetch('/api/push/unsubscribe/', {
+          method: 'POST',
+          headers: {'X-CSRFToken': PUSH_CSRF, 'Content-Type': 'application/json'},
+          body: JSON.stringify({endpoint: pushSubscription.endpoint}),
+        });
+        await pushSubscription.unsubscribe();
+        pushSubscription = null;
+      } else {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          alert('Permissão de notificações negada. Habilite nas configurações do browser.');
+          return;
+        }
 
-      const res = await fetch('/api/push/vapid-key/');
-      const {publicKey} = await res.json();
+        const res = await fetch('/api/push/vapid-key/');
+        const {publicKey} = await res.json();
+        if (!publicKey) {
+          alert('Chave VAPID não configurada no servidor.');
+          return;
+        }
 
-      pushSubscription = await swRegistration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
+        pushSubscription = await swRegistration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
 
-      await fetch('/api/push/subscribe/', {
-        method: 'POST',
-        headers: {'X-CSRFToken': PUSH_CSRF, 'Content-Type': 'application/json'},
-        body: JSON.stringify(pushSubscription.toJSON()),
-      });
+        await fetch('/api/push/subscribe/', {
+          method: 'POST',
+          headers: {'X-CSRFToken': PUSH_CSRF, 'Content-Type': 'application/json'},
+          body: JSON.stringify(pushSubscription.toJSON()),
+        });
+      }
+    } catch (e) {
+      console.error('Push toggle failed:', e);
+      alert('Erro ao configurar notificações: ' + e.message);
     }
     updatePushBtn();
+  }
+
+  async function testPush() {
+    const res = await fetch('/api/push/test/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': PUSH_CSRF},
+    });
+    const data = await res.json();
+    if (res.ok) {
+      const r = data.results[0];
+      alert(r.result === 'ok' ? '✅ Notificação enviada! Verifique seu dispositivo.' : '❌ Falha ao enviar: ' + r.result);
+    } else {
+      alert('❌ ' + (data.error || 'Erro'));
+    }
   }
 
   initPush();
