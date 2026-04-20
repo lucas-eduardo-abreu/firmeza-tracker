@@ -515,11 +515,11 @@ class CheckSpawnsCommandTest(TestCase):
             result = send_push(self.sub, 'title', 'body')
         self.assertTrue(result)
 
-    def test_send_push_returns_false_on_exception(self):
+    def test_send_push_returns_error_on_exception(self):
         from firmeza.tracker.management.commands.check_spawns import send_push
         with self.settings(VAPID_PRIVATE_KEY='bad-key'):
             result = send_push(self.sub, 'title', 'body')
-        self.assertFalse(result)
+        self.assertEqual(result, 'error')
 
     def test_failed_counter_when_send_fails(self):
         record = make_record(self.config, self.user, hours_ago=3)
@@ -527,7 +527,7 @@ class CheckSpawnsCommandTest(TestCase):
         record.save()
         out = StringIO()
         with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
-             patch('firmeza.tracker.management.commands.check_spawns.send_push', return_value=False):
+             patch('firmeza.tracker.management.commands.check_spawns.send_push', return_value='error'):
             call_command('check_spawns', stdout=out)
         self.assertIn('1 falhas', out.getvalue())
 
@@ -537,7 +537,7 @@ class CheckSpawnsCommandTest(TestCase):
         record.save()
         out = StringIO()
         with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
-             patch('firmeza.tracker.management.commands.check_spawns.send_push', return_value=True):
+             patch('firmeza.tracker.management.commands.check_spawns.send_push', return_value='ok'):
             call_command('check_spawns', stdout=out)
         self.assertIn('enviadas', out.getvalue())
 

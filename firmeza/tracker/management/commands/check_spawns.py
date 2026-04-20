@@ -9,7 +9,7 @@ from django.utils import timezone
 from firmeza.tracker.models import SpawnRecord, PushSubscription
 
 
-def send_push(subscription, title, body, icon=None):
+def send_push(subscription, title, body, icon=None, image=None):
     import logging
     log = logging.getLogger(__name__)
     try:
@@ -19,15 +19,15 @@ def send_push(subscription, title, body, icon=None):
                 'endpoint': subscription.endpoint,
                 'keys': {'p256dh': subscription.p256dh, 'auth': subscription.auth},
             },
-            data=json.dumps({'title': title, 'body': body, 'icon': icon}),
+            data=json.dumps({'title': title, 'body': body, 'icon': icon, 'image': image}),
             vapid_private_key=settings.VAPID_PRIVATE_KEY,
             vapid_claims={'sub': f'mailto:{settings.VAPID_ADMIN_EMAIL}'},
         )
         return 'ok'
     except Exception as e:
         status = getattr(getattr(e, 'response', None), 'status_code', None)
-        if status in (404, 410):
-            log.warning('Subscription gone (%s), deleting: %s', status, subscription.endpoint[:60])
+        if status in (401, 404, 410):
+            log.warning('Subscription invalid (%s), deleting: %s', status, subscription.endpoint[:60])
             return 'expired'
         log.error('send_push failed for %s: %s', subscription.endpoint[:60], e)
         return 'error'
@@ -72,7 +72,7 @@ class Command(BaseCommand):
 
             for sub in PushSubscription.objects.all():
                 self.stdout.write(f'  → endpoint: {sub.endpoint[:60]}')
-                result = send_push(sub, title, body, icon=icon)
+                result = send_push(sub, title, body, icon=icon, image=icon)
                 if result == 'ok':
                     sent += 1
                 elif result == 'expired':

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Boss, Map, BossSpawnConfig, SpawnRecord
+from .models import Boss, Map, BossSpawnConfig, SpawnRecord, PushSubscription
 
 
 @admin.register(Boss)
@@ -17,6 +17,15 @@ class MapAdmin(admin.ModelAdmin):
 class BossSpawnConfigAdmin(admin.ModelAdmin):
     list_display = ('boss', 'map', 'monsters_per_server', 'server_count', 'respawn_min_hours', 'respawn_max_hours')
     list_filter = ('boss', 'map')
+
+
+@admin.register(PushSubscription)
+class PushSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'endpoint_short', 'created_at')
+
+    def endpoint_short(self, obj):
+        return obj.endpoint[:60]
+    endpoint_short.short_description = 'endpoint'
 
 
 @admin.register(SpawnRecord)
