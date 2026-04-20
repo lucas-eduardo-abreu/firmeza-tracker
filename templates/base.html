@@ -193,18 +193,25 @@
       flex-shrink: 0;
     }
 
-    .status-dot.waiting { background: var(--status-waiting); box-shadow: 0 0 6px var(--status-waiting); }
-    .status-dot.window  { background: var(--status-window);  box-shadow: 0 0 6px var(--status-window); animation: pulse-yellow 1.5s infinite; }
-    .status-dot.overdue { background: var(--status-overdue); box-shadow: 0 0 6px var(--status-overdue); animation: pulse-green 1.5s infinite; }
-    .status-dot.unknown { background: #2980b9; box-shadow: 0 0 6px #2980b9; }
+    .status-dot.waiting    { background: var(--status-waiting); box-shadow: 0 0 6px var(--status-waiting); }
+    .status-dot.window     { background: var(--status-window);  box-shadow: 0 0 6px var(--status-window); animation: pulse-yellow 1.5s infinite; }
+    .status-dot.overdue    { background: var(--status-overdue); box-shadow: 0 0 6px var(--status-overdue); animation: pulse-green 1.5s infinite; }
+    .status-dot.unknown    { background: #2980b9; box-shadow: 0 0 6px #2980b9; }
+    .status-dot.approaching { background: #1abc9c; box-shadow: 0 0 6px #1abc9c; animation: pulse-teal 1s infinite; }
 
-    @keyframes pulse-green {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-    @keyframes pulse-yellow {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
+    @keyframes pulse-green  { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    @keyframes pulse-yellow { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    @keyframes pulse-teal   { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    .upcoming-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 0.35rem;
     }
 
     .spawn-info {
@@ -219,10 +226,12 @@
       white-space: nowrap;
     }
 
-    .spawn-info .countdown.waiting { color: var(--status-waiting); }
-    .spawn-info .countdown.window  { color: var(--status-window); }
-    .spawn-info .countdown.overdue { color: var(--status-overdue); }
-    .spawn-info .countdown.unknown { color: #2980b9; font-weight: 500; }
+    .spawn-info .countdown.waiting    { color: var(--status-waiting); }
+    .spawn-info .countdown.window     { color: var(--status-window); }
+    .spawn-info .countdown.overdue    { color: var(--status-overdue); }
+    .spawn-info .countdown.unknown    { color: #2980b9; font-weight: 500; }
+    .spawn-info .countdown.approaching { color: #1abc9c; }
+    .countdown.approaching { color: #1abc9c; }
 
     .spawn-info .last-death {
       font-size: 0.7rem;

@@ -45,6 +45,16 @@ class Command(BaseCommand):
         sent = 0
         failed = 0
 
+        now = timezone.now()
+        deleted = 0
+        for record in list(SpawnRecord.objects.select_related('config')):
+            if record.status == 'overdue':
+                if (now - record.next_spawn_max).total_seconds() > 3600:
+                    record.delete()
+                    deleted += 1
+        if deleted:
+            self.stdout.write(f'Removidos {deleted} registros com overdue > 1h.')
+
         for record in SpawnRecord.objects.select_related('config__boss', 'config__map'):
             status = record.status
 
@@ -62,13 +72,13 @@ class Command(BaseCommand):
             icon = f'{base_url}/static/bosses/{boss.gif_filename}' if boss.gif_filename else None
 
             if status == 'window':
-                title = f'⚠️ {boss.name} — Possivelmente vivo!'
-                body = f'{map_name} · S{server}{idx}'
+                title = f'\u26a0\ufe0f {boss.name} \u2014 Possivelmente vivo!'
+                body = f'{map_name} \u00b7 S{server}{idx}'
             else:
-                title = f'🟢 {boss.name} — VIVO!'
-                body = f'{map_name} · S{server}{idx} · Mate agora!'
+                title = f'\U0001f7e2 {boss.name} \u2014 VIVO!'
+                body = f'{map_name} \u00b7 S{server}{idx} \u00b7 Mate agora!'
 
-            self.stdout.write(f'Notificando: {title} | {body}')
+            self.stdout.write(f'Notificando: {boss.name} S{server}{idx} [{status}]')
 
             for sub in PushSubscription.objects.all():
                 self.stdout.write(f'  → endpoint: {sub.endpoint[:60]}')

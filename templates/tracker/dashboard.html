@@ -57,6 +57,18 @@
     {% endif %}
   </form>
 
+  <!-- Upcoming section -->
+  <div id="upcoming-section" style="display:none;" class="mb-3">
+    <div
+      style="display:flex;align-items:center;justify-content:between;cursor:pointer;user-select:none;margin-bottom:0.5rem;"
+      onclick="toggleUpcoming()"
+    >
+      <span style="font-family:'Cinzel',serif;color:#c8973a;font-size:0.82rem;letter-spacing:1px;flex:1;">NASCENDO EM BREVE</span>
+      <span id="upcoming-chevron" style="color:#555570;font-size:0.8rem;">▲</span>
+    </div>
+    <div id="upcoming-list"></div>
+  </div>
+
   <!-- Boss cards grid -->
   <div class="row g-3">
     {% for entry in data %}
@@ -123,6 +135,12 @@
                   data-min="{{ m.record.next_spawn_min.isoformat }}"
                   data-max="{{ m.record.next_spawn_max.isoformat }}"
                   data-status="{{ m.record.status }}"
+                  data-boss="{{ boss.name }}"
+                  data-map="{{ config.map.name }}"
+                  data-server="{{ server.number }}"
+                  data-index="{{ m.index }}"
+                  data-monsters="{{ config.monsters_per_server }}"
+                  data-icon="{% if boss.gif_filename %}{{ STATIC_URL }}bosses/{{ boss.gif_filename }}{% endif %}"
                 ></div>
                 <div class="window-range" id="range-{{ config.id }}-{{ server.number }}-{{ m.index }}">
                   {{ m.record.next_spawn_min|date:"d/m H:i" }} — {{ m.record.next_spawn_max|date:"d/m H:i" }}
@@ -220,6 +238,65 @@ function alarmOverdue() {
 
 // Track previous statuses to detect transitions
 const prevStatuses = {};
+
+// ── Upcoming section ──────────────────────────────────────────
+let upcomingCollapsed = false;
+
+function toggleUpcoming() {
+  upcomingCollapsed = !upcomingCollapsed;
+  document.getElementById('upcoming-list').style.display = upcomingCollapsed ? 'none' : '';
+  document.getElementById('upcoming-chevron').textContent = upcomingCollapsed ? '▼' : '▲';
+}
+
+function buildUpcomingSection() {
+  const items = [];
+  document.querySelectorAll('[id^="countdown-"]').forEach(el => {
+    if (!el.getAttribute('data-min')) return;
+    const status = [...el.classList].find(c => ['approaching','window','overdue'].includes(c));
+    if (!status) return;
+    const now = Date.now();
+    const minTime = new Date(el.getAttribute('data-min')).getTime();
+    const maxTime = new Date(el.getAttribute('data-max')).getTime();
+    const sortKey = status === 'overdue' ? -(now - maxTime) : (status === 'window' ? maxTime - now : minTime - now);
+    items.push({
+      status, sortKey,
+      boss: el.getAttribute('data-boss') || '',
+      map: el.getAttribute('data-map') || '',
+      server: el.getAttribute('data-server') || '',
+      index: el.getAttribute('data-index') || '1',
+      monsters: parseInt(el.getAttribute('data-monsters') || '1'),
+      icon: el.getAttribute('data-icon') || '',
+      text: el.textContent.trim(),
+    });
+  });
+
+  const order = { overdue: 0, window: 1, approaching: 2 };
+  items.sort((a, b) => {
+    const d = order[a.status] - order[b.status];
+    return d !== 0 ? d : a.sortKey - b.sortKey;
+  });
+
+  const section = document.getElementById('upcoming-section');
+  const list = document.getElementById('upcoming-list');
+  if (items.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  if (upcomingCollapsed) return;
+
+  list.innerHTML = items.map(item => {
+    const idx = item.monsters > 1 ? ` #${item.index}` : '';
+    const img = item.icon
+      ? `<img src="${item.icon}" alt="" style="width:36px;height:36px;object-fit:contain;image-rendering:pixelated;border-radius:4px;flex-shrink:0;">`
+      : `<div style="width:36px;height:36px;background:#111128;border-radius:4px;flex-shrink:0;"></div>`;
+    return `<div class="upcoming-item">
+      ${img}
+      <div style="flex:1;min-width:0;overflow:hidden;">
+        <div style="font-size:0.82rem;font-weight:600;color:var(--gold-light);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.boss}</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);">${item.map} · S${item.server}${idx}</div>
+      </div>
+      <div class="countdown ${item.status}" style="font-size:0.78rem;white-space:nowrap;flex-shrink:0;">${item.text}</div>
+    </div>`;
+  }).join('');
+}
 
 // Initialise from page render (avoid firing alarms on load)
 document.querySelectorAll('[id^="countdown-"]').forEach(el => {
@@ -320,9 +397,14 @@ function refreshCountdown(el, dot) {
   let status, text;
 
   if (now < minTime) {
-    status = 'waiting';
     const diff = minTime - now;
-    text = `Morto — ${formatDuration(diff)}`;
+    if (diff <= 300000) {
+      status = 'approaching';
+      text = `Em breve — ${formatDuration(diff)}`;
+    } else {
+      status = 'waiting';
+      text = `Morto — ${formatDuration(diff)}`;
+    }
   } else if (now <= maxTime) {
     status = 'window';
     const diff = maxTime - now;
@@ -341,7 +423,8 @@ function refreshCountdown(el, dot) {
   const key = el.id.replace('countdown-', '');
   const prev = prevStatuses[key];
   if (prev && prev !== status) {
-    if (status === 'window') alarmWindow();
+    if (status === 'approaching') playTone(440, 0.2, 0.0);
+    else if (status === 'window') alarmWindow();
     else if (status === 'overdue') alarmOverdue();
   }
   prevStatuses[key] = status;
@@ -365,6 +448,7 @@ function refreshAll() {
     const dot = document.getElementById(`dot-${key}`);
     refreshCountdown(el, dot);
   });
+  buildUpcomingSection();
 }
 
 refreshAll();

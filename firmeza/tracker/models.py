@@ -84,6 +84,8 @@ class SpawnRecord(models.Model):
     def status(self):
         now = timezone.now()
         if now < self.next_spawn_min:
+            if (self.next_spawn_min - now).total_seconds() <= 300:
+                return 'approaching'
             return 'waiting'
         elif now <= self.next_spawn_max:
             return 'window'

@@ -89,17 +89,22 @@ class SpawnRecordModelTest(TestCase):
         self.assertAlmostEqual(record.next_spawn_max.timestamp(), expected.timestamp(), delta=1)
 
     def test_status_waiting(self):
-        # Died 30 min ago, min respawn is 2h → still waiting
         record = make_record(self.config, self.user, hours_ago=0.5)
         self.assertEqual(record.status, 'waiting')
 
+    def test_status_approaching(self):
+        # Died 1h 58min ago, min respawn 2h → 2min before window = approaching
+        record = SpawnRecord(
+            config=self.config, server_number=1, monster_index=1,
+            last_death=timezone.now() - timedelta(hours=2) + timedelta(minutes=2),
+        )
+        self.assertEqual(record.status, 'approaching')
+
     def test_status_window(self):
-        # Died 3h ago, window is 2h–4h → in window
         record = make_record(self.config, self.user, hours_ago=3)
         self.assertEqual(record.status, 'window')
 
     def test_status_overdue(self):
-        # Died 5h ago, max respawn is 4h → overdue
         record = make_record(self.config, self.user, hours_ago=5)
         self.assertEqual(record.status, 'overdue')
 
@@ -457,7 +462,7 @@ class CheckSpawnsCommandTest(TestCase):
             self.assertIn('Possivelmente', args[1])
 
     def test_sends_notification_on_overdue_transition(self):
-        record = make_record(self.config, self.user, hours_ago=5)  # overdue
+        record = make_record(self.config, self.user, hours_ago=4.5)  # overdue ~30min, under 1h threshold
         record.last_notified_status = 'window'
         record.save()
         with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
@@ -541,6 +546,30 @@ class CheckSpawnsCommandTest(TestCase):
             call_command('check_spawns', stdout=out)
         self.assertIn('enviadas', out.getvalue())
 
+    def test_deletes_record_overdue_more_than_1h(self):
+        # max respawn 4h, died 5h 10min ago → overdue by 1h 10min → should be deleted
+        record = SpawnRecord.objects.create(
+            config=self.config, server_number=1, monster_index=1,
+            last_death=timezone.now() - timedelta(hours=5, minutes=10),
+            reported_by=self.user,
+        )
+        out = StringIO()
+        with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']):
+            call_command('check_spawns', stdout=out)
+        self.assertFalse(SpawnRecord.objects.filter(pk=record.pk).exists())
+        self.assertIn('Removidos 1', out.getvalue())
+
+    def test_keeps_record_overdue_less_than_1h(self):
+        # max respawn 4h, died 4h 30min ago → overdue by 30min → keep
+        record = SpawnRecord.objects.create(
+            config=self.config, server_number=1, monster_index=1,
+            last_death=timezone.now() - timedelta(hours=4, minutes=30),
+            reported_by=self.user,
+        )
+        with self.settings(VAPID_PRIVATE_KEY='key', ALLOWED_HOSTS=['example.com']), \
+             patch('firmeza.tracker.management.commands.check_spawns.send_push', return_value='ok'):
+            call_command('check_spawns', stdout=StringIO())
+        self.assertTrue(SpawnRecord.objects.filter(pk=record.pk).exists())
 
 # ── Seed command tests ────────────────────────────────────────
 
