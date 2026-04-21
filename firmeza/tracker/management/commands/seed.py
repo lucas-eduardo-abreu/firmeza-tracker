@@ -11,7 +11,7 @@ BOSS_DATA = [
     ('Borgar',        'Borgar.gif',        10,  'Shadow Abyss',     1,  3, 2.0,  3.0),
     ('Dreadhorn',     'Dreadhorn.gif',     20,  'Shadow Abyss',     2,  3, 1.0,  2.0),
     ('Moltragron',    'Moltragron.gif',    30,  'Shadow Abyss',     2,  3, 1.0,  2.0),
-    ('Red Dragon',    'Red Dragon.gif',    35,  'Shadow Abyss',     1,  3, 10.0, 11.0),
+    ('Red Dragon',    'Red Dragon.gif',    35,  'Shadow Abyss',     1,  3, 5.0,  5.0),
     ('Kharzul',       'Kharzul.gif',       40,  'Ruined Lorencia',  3,  1, 3.0,  4.0),
     ('Kharzul',       'Kharzul.gif',       40,  'Shadow Abyss',     1,  3, 3.0,  4.0),
     ('Vescrya',       'Vescrya.gif',       50,  'Ruined Devias',    3,  1, 3.0,  4.0),
@@ -24,6 +24,10 @@ BOSS_DATA = [
     ('Red Goblin',    'Red Goblin.gif',    80,  'Shadow Abyss',     3,  3, 10.0, 11.0),
     ('Yellow Goblin', 'Yellow Goblin.gif', 90,  'Shadow Abyss',     3,  3, 10.0, 11.0),
     ('Skarnath',      'Skarnath.gif',      110, 'Kardamahal',       10, 8, 3.0,  4.0),
+    ('Cursed Santa',  'Cursed Santa.gif',  120, 'Shadow Abyss',     1,  3, 10.0, 10.0),
+    ('White Wizard',  'White Wizard.gif',  130, 'Shadow Abyss',     1,  3, 10.0, 10.0),
+    ('Death King',    'Death King.gif',    140, 'Shadow Abyss',     1,  3, 10.0, 10.0),
+    ('Cryonox',       'Cryonox.gif',       150, 'Twisted Karutan',  4,  3, 10.0, 10.0),
 ]
 
 
