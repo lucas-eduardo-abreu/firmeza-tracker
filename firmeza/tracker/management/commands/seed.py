@@ -11,7 +11,7 @@ BOSS_DATA = [
     ('Borgar',        'Borgar.gif',        10,  'Shadow Abyss',     1,  3, 2.0,  3.0),
     ('Dreadhorn',     'Dreadhorn.gif',     20,  'Shadow Abyss',     2,  3, 1.0,  2.0),
     ('Moltragron',    'Moltragron.gif',    30,  'Shadow Abyss',     2,  3, 1.0,  2.0),
-    ('Red Dragon',    'Red Dragon.gif',    35,  'Shadow Abyss',     1,  3, 2.0,  3.0),
+    ('Red Dragon',    'Red Dragon.gif',    150, 'Shadow Abyss',     1,  3, 1.0,  2.0),
     ('Kharzul',       'Kharzul.gif',       40,  'Ruined Lorencia',  3,  1, 3.0,  4.0),
     ('Kharzul',       'Kharzul.gif',       40,  'Shadow Abyss',     1,  3, 3.0,  4.0),
     ('Vescrya',       'Vescrya.gif',       50,  'Ruined Devias',    3,  1, 3.0,  4.0),
@@ -27,7 +27,7 @@ BOSS_DATA = [
     ('Cursed Santa',  'Cursed Santa.gif',  120, 'Shadow Abyss',     1,  3, 10.0, 10.0),
     ('White Wizard',  'White Wizard.gif',  130, 'Shadow Abyss',     1,  3, 10.0, 10.0),
     ('Death King',    'Death King.gif',    140, 'Shadow Abyss',     1,  3, 10.0, 10.0),
-    ('Cryonox',       'Cryonox.gif',       150, 'Twisted Karutan',  4,  3, 10.0, 10.0),
+    ('Cryonox',       'Cryonox.gif',       35,  'Twisted Karutan',  4,  3, 10.0, 10.0),
 ]
 
 
@@ -60,7 +60,7 @@ class Command(BaseCommand):
 
             map_obj, _ = Map.objects.get_or_create(name=map_name)
 
-            _, cfg_created = BossSpawnConfig.objects.get_or_create(
+            _, cfg_created = BossSpawnConfig.objects.update_or_create(
                 boss=boss,
                 map=map_obj,
                 defaults={
