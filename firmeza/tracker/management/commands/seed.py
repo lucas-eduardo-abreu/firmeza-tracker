@@ -11,7 +11,7 @@ BOSS_DATA = [
     ('Borgar',        'Borgar.gif',        10,  'Shadow Abyss',     1,  3, 2.0,  3.0),
     ('Dreadhorn',     'Dreadhorn.gif',     20,  'Shadow Abyss',     2,  3, 1.0,  2.0),
     ('Moltragron',    'Moltragron.gif',    30,  'Shadow Abyss',     2,  3, 1.0,  2.0),
-    ('Red Dragon',    'Red Dragon.gif',    35,  'Shadow Abyss',     1,  3, 2.5,  2.5),
+    ('Red Dragon',    'Red Dragon.gif',    35,  'Shadow Abyss',     1,  3, 2.0,  3.0),
     ('Kharzul',       'Kharzul.gif',       40,  'Ruined Lorencia',  3,  1, 3.0,  4.0),
     ('Kharzul',       'Kharzul.gif',       40,  'Shadow Abyss',     1,  3, 3.0,  4.0),
     ('Vescrya',       'Vescrya.gif',       50,  'Ruined Devias',    3,  1, 3.0,  4.0),
